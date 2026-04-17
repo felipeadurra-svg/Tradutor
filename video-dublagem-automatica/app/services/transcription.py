@@ -75,7 +75,7 @@ class TranscriptionService:
         return getattr(segment, key, default)
 
     @classmethod
-    def _extract_segments(transcript) -> List[Dict[str, Any]]:
+    def _extract_segments(cls, transcript) -> List[Dict[str, Any]]:
         """
         Extract segments with timing information
         
