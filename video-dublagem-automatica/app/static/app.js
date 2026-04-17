@@ -17,6 +17,7 @@ const transcriptionOutput = document.getElementById("transcription-output");
 const copyTranscriptionButton = document.getElementById("copy-transcription");
 
 let pollTimer = null;
+const POLL_INTERVAL_MS = 700;
 
 const statusTitles = {
   idle: "Pronto para receber um video",
@@ -135,7 +136,7 @@ function startPolling() {
     clearInterval(pollTimer);
   }
 
-  pollTimer = setInterval(syncUi, 2500);
+  pollTimer = setInterval(syncUi, POLL_INTERVAL_MS);
 }
 
 form.addEventListener("submit", async (event) => {

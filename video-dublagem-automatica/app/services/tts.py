@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 from pathlib import Path
 from openai import OpenAI
 
@@ -85,7 +85,8 @@ class TTSService:
         segments: list,
         output_dir: str = str(AUDIO_DIR),
         voice: str = TTS_VOICE,
-        speed: float = 1.0
+        speed: float = 1.0,
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Dict[str, Any]:
         """
         Generate audio for multiple segments
@@ -107,6 +108,8 @@ class TTSService:
             generated_segments = []
             audio_files = []
             
+            total_segments = len(segments)
+
             for i, segment in enumerate(segments):
                 translated_text = segment.get('translated_text', '')
                 
@@ -117,6 +120,8 @@ class TTSService:
                         'audio_path': None,
                         'audio_generated': False
                     })
+                    if progress_callback:
+                        progress_callback(i + 1, total_segments)
                     continue
                 
                 # Generate audio for segment
@@ -138,6 +143,8 @@ class TTSService:
                     
                     audio_files.append(str(output_file))
                     logger.debug(f"Generated audio for segment {i}")
+                    if progress_callback:
+                        progress_callback(i + 1, total_segments)
                     
                 except TTSError as e:
                     logger.error(f"Failed to generate audio for segment {i}: {str(e)}")
@@ -147,6 +154,8 @@ class TTSService:
                         'audio_generated': False,
                         'error': str(e)
                     })
+                    if progress_callback:
+                        progress_callback(i + 1, total_segments)
             
             logger.info(f"Generated TTS audio for {len(audio_files)} segments")
             

@@ -2,7 +2,7 @@ import logging
 import math
 import subprocess
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,8 @@ class TranscriptionService:
     def transcribe_audio(
         self,
         audio_path: str,
-        language: str = LANGUAGE_SOURCE
+        language: str = LANGUAGE_SOURCE,
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Dict[str, Any]:
         """
         Transcribe audio file using Whisper
@@ -51,14 +52,18 @@ class TranscriptionService:
 
             audio_file_size = Path(audio_path).stat().st_size
             if audio_file_size <= self.MAX_UPLOAD_BYTES:
+                if progress_callback:
+                    progress_callback(0, 1)
                 transcript = self._transcribe_file(audio_path, language)
+                if progress_callback:
+                    progress_callback(1, 1)
                 return self._format_result(transcript, language)
 
             logger.info(
                 "Audio exceeds direct upload limit (%.2f MB). Splitting into chunks.",
                 audio_file_size / (1024 * 1024)
             )
-            return self._transcribe_large_audio(audio_path, language)
+            return self._transcribe_large_audio(audio_path, language, progress_callback)
             
         except FileNotFoundError:
             logger.error(f"Audio file not found: {audio_path}")
@@ -87,21 +92,29 @@ class TranscriptionService:
             "segments": self._extract_segments(transcript)
         }
 
-    def _transcribe_large_audio(self, audio_path: str, language: str) -> Dict[str, Any]:
+    def _transcribe_large_audio(
+        self,
+        audio_path: str,
+        language: str,
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> Dict[str, Any]:
         """Split large audio files into smaller chunks and merge the results."""
         chunk_files: List[Dict[str, Any]] = []
         try:
             chunk_files = self._split_audio_for_transcription(audio_path)
+            total_chunks = len(chunk_files)
 
             merged_texts: List[str] = []
             merged_segments: List[Dict[str, Any]] = []
             total_duration = 0.0
 
             for chunk_index, chunk_info in enumerate(chunk_files):
+                if progress_callback:
+                    progress_callback(chunk_index, total_chunks)
                 logger.info(
                     "Transcribing chunk %s/%s starting at %.2fs",
                     chunk_index + 1,
-                    len(chunk_files),
+                    total_chunks,
                     chunk_info["offset"]
                 )
                 transcript = self._transcribe_file(chunk_info["path"], language)
@@ -120,6 +133,9 @@ class TranscriptionService:
                     merged_segments.append(adjusted_segment)
 
                 total_duration = max(total_duration, offset + chunk_result.get("duration", 0))
+
+            if progress_callback:
+                progress_callback(total_chunks, total_chunks)
 
             logger.info("Large audio transcription completed successfully")
             return {

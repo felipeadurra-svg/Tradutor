@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Callable
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,8 @@ IMPORTANT RULES:
         self,
         segments: List[Dict[str, Any]],
         source_language: str = "English",
-        target_language: str = "Brazilian Portuguese"
+        target_language: str = "Brazilian Portuguese",
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> List[Dict[str, Any]]:
         """
         Translate multiple segments with timing information
@@ -152,6 +153,8 @@ IMPORTANT RULES:
             
             translated_segments = []
             
+            total_segments = len(segments)
+
             for i, segment in enumerate(segments):
                 original_text = segment.get('text', '')
                 
@@ -161,6 +164,8 @@ IMPORTANT RULES:
                         'translated_text': '',
                         'original_text': original_text
                     })
+                    if progress_callback:
+                        progress_callback(i + 1, total_segments)
                     continue
                 
                 # Translate individual segment
@@ -175,8 +180,11 @@ IMPORTANT RULES:
                     'translated_text': translated_text,
                     'original_text': original_text
                 })
+
+                if progress_callback:
+                    progress_callback(i + 1, total_segments)
                 
-                logger.debug(f"Translated segment {i+1}/{len(segments)}")
+                logger.debug(f"Translated segment {i+1}/{total_segments}")
             
             logger.info(f"All segments translated successfully")
             return translated_segments
