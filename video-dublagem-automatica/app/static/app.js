@@ -8,6 +8,8 @@ const progressValue = document.getElementById("progress-value");
 const progressBar = document.getElementById("progress-bar");
 const resultEmpty = document.getElementById("result-empty");
 const resultContent = document.getElementById("result-content");
+const videoPreview = document.getElementById("video-preview");
+const resultVideo = document.getElementById("result-video");
 const resultMessage = document.getElementById("result-message");
 const youtubeLink = document.getElementById("youtube-link");
 const localFileLink = document.getElementById("local-file-link");
@@ -80,8 +82,16 @@ function updateResultUi(result) {
   if (result.local_file_url) {
     localFileLink.href = result.local_file_url;
     localFileLink.classList.remove("hidden");
+    videoPreview.classList.remove("hidden");
+    if (resultVideo.getAttribute("src") !== result.local_file_url) {
+      resultVideo.src = result.local_file_url;
+      resultVideo.load();
+    }
   } else {
     localFileLink.classList.add("hidden");
+    videoPreview.classList.add("hidden");
+    resultVideo.removeAttribute("src");
+    resultVideo.load();
   }
 
   transcriptionOutput.textContent = result.transcription || "Transcricao nao disponivel.";

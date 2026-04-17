@@ -355,7 +355,8 @@ body {
 
 .result-empty,
 .result-summary,
-.transcription-card {
+.transcription-card,
+.video-preview {
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.45);
@@ -369,6 +370,34 @@ body {
 .result-content {
   display: grid;
   gap: 18px;
+}
+
+.video-preview {
+  padding: 18px;
+}
+
+.video-preview-header {
+  margin-bottom: 14px;
+}
+
+.video-preview-header h3 {
+  margin: 0 0 6px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.08rem;
+}
+
+.video-preview-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+#result-video {
+  width: 100%;
+  display: block;
+  border-radius: 16px;
+  background: #120f0d;
+  aspect-ratio: 16 / 9;
 }
 
 .result-summary {
