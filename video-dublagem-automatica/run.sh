@@ -36,4 +36,4 @@ source venv/bin/activate
 pip install -q -r requirements.txt 2>/dev/null
 
 # Start application
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8080

@@ -2,15 +2,13 @@ import logging
 import os
 from typing import Dict, Any, Optional
 from pathlib import Path
-from google.oauth2.service_account import Credentials
+import pickle
 from google.auth.transport.requests import Request
-from google.oauth2 import file as oauth_file
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.urllib3 import Request as UrllibRequest
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
-import pickle
 
 logger = logging.getLogger(__name__)
 

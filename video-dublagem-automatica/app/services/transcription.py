@@ -67,6 +67,14 @@ class TranscriptionService:
             raise TranscriptionError(f"Failed to transcribe audio: {str(e)}")
 
     @staticmethod
+    def _segment_value(segment: Any, key: str, default: Any = None) -> Any:
+        """Read a segment field from either a dict-like or attribute-based SDK object."""
+        if isinstance(segment, dict):
+            return segment.get(key, default)
+
+        return getattr(segment, key, default)
+
+    @classmethod
     def _extract_segments(transcript) -> List[Dict[str, Any]]:
         """
         Extract segments with timing information
@@ -82,16 +90,16 @@ class TranscriptionService:
         if hasattr(transcript, 'segments'):
             for segment in transcript.segments:
                 segments.append({
-                    "id": segment.get('id', 0),
-                    "seek": segment.get('seek', 0),
-                    "start": segment.get('start', 0),
-                    "end": segment.get('end', 0),
-                    "text": segment.get('text', ''),
-                    "tokens": segment.get('tokens', []),
-                    "temperature": segment.get('temperature', 0),
-                    "avg_logprob": segment.get('avg_logprob', 0),
-                    "compression_ratio": segment.get('compression_ratio', 0),
-                    "no_speech_prob": segment.get('no_speech_prob', 0)
+                    "id": cls._segment_value(segment, "id", 0),
+                    "seek": cls._segment_value(segment, "seek", 0),
+                    "start": cls._segment_value(segment, "start", 0),
+                    "end": cls._segment_value(segment, "end", 0),
+                    "text": cls._segment_value(segment, "text", ""),
+                    "tokens": cls._segment_value(segment, "tokens", []),
+                    "temperature": cls._segment_value(segment, "temperature", 0),
+                    "avg_logprob": cls._segment_value(segment, "avg_logprob", 0),
+                    "compression_ratio": cls._segment_value(segment, "compression_ratio", 0),
+                    "no_speech_prob": cls._segment_value(segment, "no_speech_prob", 0)
                 })
         
         return segments
