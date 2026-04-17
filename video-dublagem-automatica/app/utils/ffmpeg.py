@@ -151,7 +151,7 @@ class FFmpegHandler:
                 "-v", "error",
                 "-show_format",
                 "-show_streams",
-                "-print_json",
+                "-of", "json",
                 video_path
             ]
             
@@ -210,7 +210,7 @@ class FFmpegHandler:
                 FFPROBE_PATH,
                 "-v", "error",
                 "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1:noprint_json=1",
+                "-of", "default=noprint_wrappers=1:nokey=1",
                 audio_path
             ]
             
