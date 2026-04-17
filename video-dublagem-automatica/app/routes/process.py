@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from datetime import datetime
 import asyncio
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ from app.services.translation import TranslationService, TranslationError
 from app.services.tts import TTSService, TTSError
 from app.services.video_processing import VideoProcessor, VideoProcessingError
 from app.services.youtube_uploader import YouTubeUploader, YouTubeError
+from app.config.settings import STORAGE_DIR
 
 
 # Request models
@@ -34,6 +36,7 @@ class ProcessVideoResponse(BaseModel):
     video_id: Optional[str] = None
     youtube_url: Optional[str] = None
     local_file_path: Optional[str] = None
+    local_file_url: Optional[str] = None
     duration: Optional[float] = None
     transcription: Optional[str] = None
     status: str
@@ -47,6 +50,11 @@ class ProcessingStatusResponse(BaseModel):
     current_step: str
 
 
+class ProcessingResultResponse(BaseModel):
+    """Response model for the latest processing result"""
+    result: Optional[ProcessVideoResponse] = None
+
+
 # Initialize router
 router = APIRouter(prefix="/api", tags=["processing"])
 
@@ -58,6 +66,8 @@ processing_state = {
     "message": ""
 }
 
+latest_result: Optional[Dict[str, Any]] = None
+
 
 async def _update_state(status: str, progress: int, step: str, message: str = ""):
     """Update global processing state"""
@@ -66,6 +76,18 @@ async def _update_state(status: str, progress: int, step: str, message: str = ""
     processing_state["current_step"] = step
     processing_state["message"] = message
     logger.info(f"State: {step} ({progress}%) - {message}")
+
+
+def _store_latest_result(result: Dict[str, Any]) -> None:
+    """Store the latest processing result for UI consumption."""
+    global latest_result
+    latest_result = result
+
+
+def _build_media_url(file_path: str) -> str:
+    """Build a browser-friendly URL for generated files inside storage."""
+    relative_path = Path(file_path).resolve().relative_to(STORAGE_DIR.resolve())
+    return f"/media/{relative_path.as_posix()}"
 
 
 async def _process_video_task(
@@ -93,6 +115,9 @@ async def _process_video_task(
         Dictionary with processing results
     """
     try:
+        global latest_result
+        latest_result = None
+
         logger.info(f"Starting video processing for URL: {video_url}")
         await _update_state("processing", 5, "Downloading video", "Iniciando download")
         
@@ -173,83 +198,101 @@ async def _process_video_task(
             logger.info(f"Video uploaded to YouTube: {youtube_url}")
             await _update_state("processing", 100, "Complete", "Processamento concluído")
             
-            return {
+            result = {
                 "success": True,
                 "message": "Vídeo dublado e enviado para YouTube com sucesso!",
                 "video_id": video_id,
                 "youtube_url": youtube_url,
                 "local_file_path": dubbed_video_path,
+                "local_file_url": _build_media_url(dubbed_video_path),
                 "transcription": original_text,
                 "status": "completed"
             }
+            _store_latest_result(result)
+            return result
             
         except YouTubeError as e:
             logger.warning(f"YouTube upload failed, but local file ready: {str(e)}")
             await _update_state("processing", 100, "Complete (No Upload)", "Vídeo pronto localmente")
             
-            return {
+            result = {
                 "success": True,
                 "message": f"Vídeo dublado criado, mas upload ao YouTube falhou: {str(e)}",
                 "video_id": None,
                 "youtube_url": None,
                 "local_file_path": dubbed_video_path,
+                "local_file_url": _build_media_url(dubbed_video_path),
                 "transcription": original_text,
                 "status": "completed_local_only"
             }
+            _store_latest_result(result)
+            return result
         
     except DownloadError as e:
         logger.error(f"Download error: {str(e)}")
         await _update_state("error", 0, "Download failed", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro ao baixar vídeo: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
     
     except TranscriptionError as e:
         logger.error(f"Transcription error: {str(e)}")
         await _update_state("error", 0, "Transcription failed", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro na transcrição: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
     
     except TranslationError as e:
         logger.error(f"Translation error: {str(e)}")
         await _update_state("error", 0, "Translation failed", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro na tradução: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
     
     except TTSError as e:
         logger.error(f"TTS error: {str(e)}")
         await _update_state("error", 0, "TTS failed", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro na geração de áudio: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
     
     except VideoProcessingError as e:
         logger.error(f"Video processing error: {str(e)}")
         await _update_state("error", 0, "Video processing failed", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro no processamento de vídeo: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
     
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         await _update_state("error", 0, "Unexpected error", str(e))
-        return {
+        result = {
             "success": False,
             "message": f"Erro inesperado: {str(e)}",
             "status": "error"
         }
+        _store_latest_result(result)
+        return result
 
 
 @router.post("/processar", response_model=ProcessVideoResponse)
@@ -291,6 +334,8 @@ async def processar_video(
                 detail="Velocidade de fala deve estar entre 0.25 e 4.0"
             )
         
+        await _update_state("queued", 0, "Queued", "Vídeo recebido e aguardando processamento")
+
         # Add task to background processing
         background_tasks.add_task(
             _process_video_task,
@@ -337,6 +382,20 @@ async def get_processing_status() -> ProcessingStatusResponse:
         progress=processing_state["progress"],
         current_step=processing_state["current_step"]
     )
+
+
+@router.get("/resultado", response_model=ProcessingResultResponse)
+async def get_processing_result() -> ProcessingResultResponse:
+    """
+    Get the latest processing result.
+
+    Returns:
+        ProcessingResultResponse with the latest result, when available
+    """
+    if latest_result is None:
+        return ProcessingResultResponse(result=None)
+
+    return ProcessingResultResponse(result=ProcessVideoResponse(**latest_result))
 
 
 @router.get("/health")

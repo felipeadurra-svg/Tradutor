@@ -22,14 +22,15 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from typing import Dict, Any
 from datetime import datetime
 
 # Import configuration
 from app.config.settings import (
     DEBUG, HOST, PORT, BASE_DIR, 
-    INPUT_DIR, AUDIO_DIR, OUTPUT_DIR
+    INPUT_DIR, AUDIO_DIR, OUTPUT_DIR, STORAGE_DIR
 )
 
 # Import routes
@@ -54,6 +55,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+STATIC_DIR = BASE_DIR / "app" / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/media", StaticFiles(directory=STORAGE_DIR), name="media")
 
 
 # Exception handlers
@@ -121,26 +126,15 @@ async def shutdown_event():
 
 # Root endpoint
 @app.get("/")
-async def root() -> Dict[str, Any]:
+async def root():
     """
     Root endpoint with API information
     
     Returns:
         API information
     """
-    return {
-        "name": "Video Dublagem Automática",
-        "version": "1.0.0",
-        "description": "Sistema de dublagem automática de vídeos com IA",
-        "endpoints": {
-            "POST /api/processar": "Processar e dublar vídeo",
-            "GET /api/status": "Status do processamento",
-            "GET /api/health": "Health check",
-            "GET /docs": "Documentação interativa (Swagger)",
-            "GET /redoc": "Documentação (ReDoc)"
-        },
-        "timestamp": datetime.now().isoformat()
-    }
+    index_file = STATIC_DIR / "index.html"
+    return FileResponse(index_file)
 
 
 # Include routers
